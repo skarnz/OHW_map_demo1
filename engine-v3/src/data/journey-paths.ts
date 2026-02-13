@@ -17,22 +17,24 @@ const DAILY_LAYOUT: PathNode[] = [
   { id: 'checkin', x: 200, y: 220, type: 'task', label: 'Check-in', category: 'checkin' },
 ];
 
+// Path coordinates use normalized X (0..1) so the renderer can scale to
+// any screen width. Y coordinates are absolute world-space pixels with
+// generous spacing (~240pt) so 3-4 nodes fill a phone screen vertically.
+// The renderer multiplies normalizedX * viewportWidth at draw time.
+
 function generateWeeklyPath(weekId: string): PathNode[] {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const mapWidth = 380;
-  const mapHeight = 600;
-  const margin = 50;
-  const usableWidth = mapWidth - margin * 2;
-  const yStep = (mapHeight - margin * 2) / (days.length - 1);
+  const nodeSpacing = 160;
+  const marginY = 100;
+  const mapHeight = days.length * nodeSpacing + marginY * 2;
 
   return days.map((day, i) => {
-    const isEven = i % 2 === 0;
-    const xBase = isEven ? margin + usableWidth * 0.3 : margin + usableWidth * 0.7;
-    const xWobble = (Math.sin(i * 1.8) * usableWidth * 0.15);
+    // Zigzag between ~25% and ~75% of viewport width (normalized)
+    const nx = i % 2 === 0 ? 0.25 : 0.75;
     return {
       id: `${weekId}-d${i + 1}`,
-      x: Math.round(xBase + xWobble),
-      y: Math.round(mapHeight - margin - i * yStep),
+      x: nx + Math.sin(i * 1.3) * 0.04,
+      y: Math.round(mapHeight - marginY - i * nodeSpacing),
       type: 'day' as const,
       label: day,
     };
@@ -40,22 +42,26 @@ function generateWeeklyPath(weekId: string): PathNode[] {
 }
 
 function generateMonthlyPath(weekCount: number): PathNode[] {
-  const mapWidth = 380;
-  const mapHeight = Math.max(600, weekCount * 80 + 100);
-  const margin = 60;
-  const yStep = (mapHeight - margin * 2) / Math.max(weekCount - 1, 1);
+  const nodeSpacing = 240;
+  const marginY = 160;
+  const mapHeight = weekCount * nodeSpacing + marginY * 2;
 
   return Array.from({ length: weekCount }, (_, i) => {
-    const isEven = Math.floor(i / 2) % 2 === 0;
-    const xBase = isEven
-      ? margin + (i % 2) * 120
-      : mapWidth - margin - (i % 2) * 120;
-    const xWobble = Math.sin(i * 1.2) * 40;
+    // 3-column snake: left(0.2), center(0.5), right(0.8)
+    const col = i % 3;
+    let nx: number;
+    if (col === 0) nx = 0.2;
+    else if (col === 1) nx = 0.5;
+    else nx = 0.8;
+
+    // Subtle wobble
+    nx += Math.sin(i * 0.7) * 0.05;
+    nx = Math.max(0.12, Math.min(0.88, nx));
 
     return {
       id: `w${i + 1}`,
-      x: Math.round(Math.max(margin, Math.min(mapWidth - margin, xBase + xWobble))),
-      y: Math.round(mapHeight - margin - i * yStep),
+      x: nx,
+      y: Math.round(mapHeight - marginY - i * nodeSpacing),
       type: 'week' as const,
       label: `Week ${i + 1}`,
     };

@@ -152,11 +152,12 @@ for (const task of daily) {
 }
 
 // Verify node coordinate sanity (no NaN, reasonable ranges)
+// Monthly/weekly paths use normalized X (0..1), Y is absolute pixels
 for (const config of Object.values(PATH_CONFIGS)) {
   for (const node of config.monthlyPath) {
     assert(!isNaN(node.x) && !isNaN(node.y), `${config.id} ${node.id} no NaN`);
-    assert(node.x >= 0 && node.x <= 500, `${config.id} ${node.id} x in range (${node.x})`);
-    assert(node.y >= 0 && node.y <= 3000, `${config.id} ${node.id} y in range (${node.y})`);
+    assert(node.x >= 0 && node.x <= 1, `${config.id} ${node.id} normalized x in range (${node.x})`);
+    assert(node.y >= 0 && node.y <= 7000, `${config.id} ${node.id} y in range (${node.y})`);
   }
 }
 

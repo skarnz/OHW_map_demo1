@@ -20,7 +20,14 @@ import { generateProps, renderProps } from '../props/PropsRenderer';
 import { SoundManager } from '../audio/SoundManager';
 import { preloadAssets, getNodeTexture } from '../assets/loader';
 
-const NODE_RADIUS = 22;
+const NODE_RADIUS = 28;
+
+// Path nodes use normalized X (0..1) so they fill any screen width.
+// This helper resolves a node's position to absolute pixel coordinates.
+function resolveNodePos(node: PathNode, screenWidth: number): { x: number; y: number } {
+  const x = node.x <= 1.0 ? node.x * screenWidth : node.x;
+  return { x, y: node.y };
+}
 
 const NODE_COLORS: Record<NodeState, number> = {
   locked: 0xD1D1D1,
@@ -167,7 +174,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
         n => n.id === propsRef.current.avatarPosition,
       );
       if (avatarNode) {
-        avatar.setPosition(avatarNode.x, avatarNode.y - 38);
+        const pos = resolveNodePos(avatarNode, dimensions.width);
+        avatar.setPosition(pos.x, pos.y - 38);
         avatarNodeRef.current = avatarNode.id;
       }
     }
@@ -247,7 +255,11 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   ) {
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
-      const { tx, ty } = clampCameraTarget(node.x - dims.width / 2, node.y - dims.height / 2, dims, bounds);
+      const pos = resolveNodePos(node, dims.width);
+      // Place avatar at bottom 70% of screen so the path stretches upward
+      const targetY = pos.y - dims.height * 0.7;
+      const targetX = pos.x - dims.width / 2;
+      const { tx, ty } = clampCameraTarget(targetX, targetY, dims, bounds);
       cameraRef.current.x = tx;
       cameraRef.current.y = ty;
       cameraRef.current.tx = tx;
@@ -267,8 +279,12 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     const avatar = avatarRef.current;
 
     if (showAvatar && avatar && avatar.state !== 'walking') {
-      // Avatar walks to the tapped node, then fires callback
-      avatar.walkTo(node, props.pathNodes, avatarNodeRef.current, (arrivedId) => {
+      // Resolve node positions for the walk path
+      const resolvedPath = props.pathNodes.map(n => ({
+        ...n,
+        ...resolveNodePos(n, dims.width),
+      }));
+      avatar.walkTo(node, resolvedPath, avatarNodeRef.current, (arrivedId) => {
         avatarNodeRef.current = arrivedId;
         SoundManager.shared().play('tap');
         cbs.onAvatarArrived(arrivedId);
@@ -276,8 +292,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       });
       SoundManager.shared().play('walk');
     } else {
-      // Monthly view or no avatar - immediate callback
-      const { tx, ty } = clampCameraTarget(node.x - dims.width / 2, node.y - dims.height / 2, dims, boundsRef);
+      const pos = resolveNodePos(node, dims.width);
+      const { tx, ty } = clampCameraTarget(pos.x - dims.width / 2, pos.y - dims.height / 2, dims, boundsRef);
       cameraRef.current.tx = tx;
       cameraRef.current.ty = ty;
       cbs.onNodeTapped(node.id, node.type);
@@ -301,8 +317,9 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       if (state === 'completed' && prev[id] && prev[id] !== 'completed') {
         const node = sceneProps.pathNodes.find(n => n.id === id);
         if (node) {
+          const pos = resolveNodePos(node, dimensions.width);
           avatarRef.current?.celebrate();
-          playCelebration(node.x, node.y - 40, 50);
+          playCelebration(pos.x, pos.y - 40, 50);
         }
       }
     }
@@ -318,19 +335,28 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     const palette = getSeasonalPalette(props.biome, props.season);
     updateBounds(props.pathNodes, dims, boundsRef);
 
-    // Background
+    // Resolve normalized node positions to screen pixels
+    const resolved = props.pathNodes.map(n => ({
+      ...n,
+      ...resolveNodePos(n, dims.width),
+    }));
+
+    // Background -- sized to node bounds + padding
     const bg = acquireGraphics('background');
     bg.zIndex = -100;
-    const minX = -200;
-    const maxX = 600;
-    const minY = -200;
-    const maxY = Math.max(900, ...props.pathNodes.map(n => n.y)) + 300;
-    bg.rect(minX, minY, maxX - minX, maxY - minY);
-    bg.fill({ color: palette.ground, alpha: 0.15 });
+    const nodeXs = resolved.map(n => n.x);
+    const nodeYs = resolved.map(n => n.y);
+    const pad = 150;
+    const bgMinX = Math.min(0, ...nodeXs) - pad;
+    const bgMaxX = Math.max(dims.width, ...nodeXs) + pad;
+    const bgMinY = Math.min(0, ...nodeYs) - pad;
+    const bgMaxY = Math.max(dims.height, ...nodeYs) + pad;
+    bg.rect(bgMinX, bgMinY, bgMaxX - bgMinX, bgMaxY - bgMinY);
+    bg.fill({ color: palette.ground });
     world.addChild(bg);
 
     // Decorative props (behind paths/nodes)
-    const propPlacements = generateProps(props.pathNodes, props.biome, hashString(props.journeyId));
+    const propPlacements = generateProps(resolved, props.biome, hashString(props.journeyId));
     const propsContainer = new Container();
     propsContainer.label = 'props';
     propsContainer.zIndex = -10;
@@ -338,10 +364,10 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     world.addChild(propsContainer);
 
     // Paths
-    drawPaths(world, props.pathNodes, props.nodeStates, palette.path);
+    drawPaths(world, resolved, props.nodeStates, palette.path);
 
     // Nodes
-    props.pathNodes.forEach((node) => {
+    resolved.forEach((node) => {
       const state = props.nodeStates[node.id] || 'locked';
       const nc = buildNode(node, state, () => {
         handleNodeTap(node, props, cbs, dims);
@@ -352,24 +378,39 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
 
     // Monthly avatar indicator dot
     if (props.sceneType === 'monthly') {
-      const avatarNode = props.pathNodes.find(n => n.id === props.avatarPosition);
+      const avatarNode = resolved.find(n => n.id === props.avatarPosition);
       if (avatarNode) {
         const dot = acquireGraphics('avatar-dot');
         dot.zIndex = 20;
-        dot.circle(avatarNode.x, avatarNode.y - NODE_RADIUS - 10, 5);
+        dot.circle(avatarNode.x, avatarNode.y - NODE_RADIUS - 12, 7);
         dot.fill({ color: 0x0A84FF });
-        dot.stroke({ width: 1.5, color: 0xFFFFFF });
+        dot.stroke({ width: 2, color: 0xFFFFFF });
         world.addChild(dot);
       }
     }
   }
 
-  // Cleanup on unmount
+  // Cleanup on unmount -- guard against Pixi's _cancelResize being null
+  // when resizeTo is undefined (common in React Native hot reload).
   useEffect(() => {
     return () => {
       avatarRef.current?.destroy();
       celebrationRef.current?.destroy();
-      appRef.current?.destroy(true);
+      const app = appRef.current;
+      if (app) {
+        try {
+          app.ticker.stop();
+          app.stage.removeChildren();
+          app.destroy(true, { children: true });
+        } catch {
+          // Pixi destroy may throw during hot reload if internal
+          // state is partially torn down (_cancelResize null, etc.)
+        }
+      }
+      appRef.current = null;
+      worldRef.current = null;
+      avatarRef.current = null;
+      celebrationRef.current = null;
     };
   }, []);
 
@@ -434,9 +475,9 @@ function drawPaths(
     g.moveTo(a.x, a.y);
     g.quadraticCurveTo(mx + cpOff, my, b.x, b.y);
     g.stroke({
-      width: 5,
+      width: 7,
       color: completed ? 0x8B7355 : pathColor,
-      alpha: isLocked ? 0.25 : 0.7,
+      alpha: isLocked ? 0.3 : 0.8,
       cap: 'round',
       join: 'round',
     });
@@ -470,13 +511,16 @@ function updateBounds(
     boundsRef.current = { minX: 0, maxX: dims.width, minY: 0, maxY: dims.height };
     return;
   }
-  const xs = nodes.map(n => n.x);
-  const ys = nodes.map(n => n.y);
-  const pad = 120;
-  const minX = Math.min(...xs) - pad;
-  const maxX = Math.max(...xs) + pad;
-  const minY = Math.min(...ys) - pad;
-  const maxY = Math.max(...ys) + pad;
+  const resolved = nodes.map(n => resolveNodePos(n, dims.width));
+  const xs = resolved.map(p => p.x);
+  const ys = resolved.map(p => p.y);
+  const padX = 80;
+  const padTop = 200;
+  const padBottom = dims.height * 0.8;
+  const minX = Math.min(...xs) - padX;
+  const maxX = Math.max(...xs) + padX;
+  const minY = Math.min(...ys) - padTop;
+  const maxY = Math.max(...ys) + padBottom;
   const spanX = Math.max(maxX - minX, dims.width);
   const spanY = Math.max(maxY - minY, dims.height);
   boundsRef.current = { minX, maxX: minX + spanX, minY, maxY: minY + spanY };
