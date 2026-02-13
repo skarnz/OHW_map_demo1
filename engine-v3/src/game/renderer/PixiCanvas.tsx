@@ -51,6 +51,7 @@ interface PixiCanvasProps {
 }
 
 export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
+  console.log(`[PixiCanvas] RENDER: scene=${sceneProps.sceneType}, nodes=${sceneProps.pathNodes.length}`);
   const appRef = useRef<Application | null>(null);
   const worldRef = useRef<Container | null>(null);
   const avatarRef = useRef<AvatarController | null>(null);
@@ -58,7 +59,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   const cameraRef = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
-  const dragRef = useRef({ active: false, lx: 0, ly: 0 });
+  const dragRef = useRef({ active: false, lx: 0, ly: 0, startX: 0, startY: 0, moved: false });
   const boundsRef = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
   const avatarNodeRef = useRef<string>('');
   const scaleRef = useRef(1);
@@ -71,6 +72,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
+    console.log(`[PixiCanvas] onLayout: ${width}x${height}`);
     if (width > 0 && height > 0) {
       setDimensions({ width, height });
     }
@@ -440,12 +442,15 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
           onResponderGrant={(e) => {
-            dragRef.current = { active: true, lx: e.nativeEvent.pageX, ly: e.nativeEvent.pageY };
+            const x = e.nativeEvent.pageX;
+            const y = e.nativeEvent.pageY;
+            dragRef.current = { active: true, lx: x, ly: y, startX: x, startY: y, moved: false };
           }}
           onResponderMove={(e) => {
             if (!dragRef.current.active) return;
             const dx = e.nativeEvent.pageX - dragRef.current.lx;
             const dy = e.nativeEvent.pageY - dragRef.current.ly;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragRef.current.moved = true;
             const nextTx = cameraRef.current.tx - dx;
             const nextTy = cameraRef.current.ty - dy;
             const { tx, ty } = clampCameraTarget(nextTx, nextTy, dimensions, boundsRef);
@@ -454,7 +459,17 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
             dragRef.current.lx = e.nativeEvent.pageX;
             dragRef.current.ly = e.nativeEvent.pageY;
           }}
-          onResponderRelease={() => {
+          onResponderRelease={(e) => {
+            if (!dragRef.current.moved) {
+              // Tap detected -- manual hit test against nodes
+              const tapX = e.nativeEvent.pageX;
+              const tapY = e.nativeEvent.pageY;
+              // Convert screen tap to world coordinates:
+              // screen -> logical camera offset -> world position
+              const worldX = tapX + cameraRef.current.x;
+              const worldY = tapY + cameraRef.current.y;
+              hitTestNodes(worldX, worldY, propsRef.current, callbacksRef.current, dimensions);
+            }
             dragRef.current.active = false;
           }}
         />
@@ -649,6 +664,29 @@ function buildNode(
   }
 
   return c;
+}
+
+function hitTestNodes(
+  worldX: number,
+  worldY: number,
+  props: GameSceneProps,
+  cbs: GameSceneCallbacks,
+  dims: { width: number; height: number },
+) {
+  const hitRadius = NODE_RADIUS + 14;
+  for (const node of props.pathNodes) {
+    const pos = resolveNodePos(node, dims.width);
+    const dx = worldX - pos.x;
+    const dy = worldY - pos.y;
+    if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+      console.log(`[PixiCanvas] Node tapped: ${node.id} (${node.type})`);
+      const state = props.nodeStates[node.id] || 'locked';
+      if (state !== 'locked') {
+        cbs.onNodeTapped(node.id, node.type);
+      }
+      return;
+    }
+  }
 }
 
 function hashString(str: string): number {

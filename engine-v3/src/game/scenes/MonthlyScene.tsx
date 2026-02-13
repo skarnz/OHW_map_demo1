@@ -43,6 +43,7 @@ export default function MonthlyScene({
 
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId, nodeType) => {
+      console.log(`[Monthly] node tapped: ${nodeId} (${nodeType}), state=${nodeStates[nodeId]}`);
       if (nodeType === 'week' && nodeStates[nodeId] !== 'locked') {
         onWeekSelected(nodeId);
       }
