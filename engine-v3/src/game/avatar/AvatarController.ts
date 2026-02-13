@@ -37,6 +37,7 @@ export class AvatarController {
   private walkIndex = 0;
   private walkProgress = 0;
   private walkFrame = 0;
+  private facing: 1 | -1 = 1;
 
   private celebrateFrame = 0;
   private celebrateBaseY = 0;
@@ -114,6 +115,13 @@ export class AvatarController {
       this.walkPath.push({ x: n.x, y: n.y - 38 });
     }
 
+    const start = pathNodes[startIdx];
+    const end = pathNodes[endIdx];
+    if (start && end) {
+      this.facing = end.x >= start.x ? 1 : -1;
+      this.container.scale.x = this.facing;
+    }
+
     this.walkIndex = 0;
     this.walkProgress = 0;
     this.walkFrame = 0;
@@ -174,8 +182,13 @@ export class AvatarController {
     const cy = from.y + (to.y - from.y) * this.walkProgress;
     this.container.x = cx;
     this.container.y = cy;
-
-    this.container.scale.x = dx >= 0 ? 1 : -1;
+    if (dx !== 0) {
+      const dir = dx > 0 ? 1 : -1;
+      if (dir !== this.facing) {
+        this.facing = dir;
+        this.container.scale.x = this.facing;
+      }
+    }
     this.drawFrame('walking', this.walkFrame);
   }
 
@@ -188,7 +201,7 @@ export class AvatarController {
 
     if (this.celebrateFrame >= CELEBRATE_DURATION) {
       this.container.y = this.celebrateBaseY;
-      this.container.scale.set(1);
+      this.container.scale.set(this.facing, 1);
       this.state = 'idle';
       this.drawFrame('idle', 0);
       this.onCelebrationDone?.();
@@ -204,6 +217,7 @@ export class AvatarController {
     if (this.useSprites && this.frames && this.sprite) {
       const frameIdx = Math.floor((Ticker.shared.lastTime * 0.003) % this.frames.idle.length);
       this.sprite.texture = this.frames.idle[frameIdx];
+      this.sprite.scale.x = 1; // prevent double flip; container handles direction
     }
   }
 

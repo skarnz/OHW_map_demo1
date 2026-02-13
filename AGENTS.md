@@ -416,3 +416,23 @@ Pixi.js v8 on React Native required 3 layers of polyfilling:
 **Next Session:**
 - Execute plan docs via compound engineering workflows
 - Priority order: (1) Gemini art generation, (2) Wire sprite rendering, (3) Visual regression tests
+
+### 2026-02-13c - Direction-Aware Avatar + Audit
+
+**Duration:** ~0.5 hours
+
+**What Happened:**
+1. Added direction-aware sprite facing in `AvatarController` (uses container scale, preserves procedural fallback).
+2. Re-ran smoke suites: 379 core + 48 Pixi tests pass.
+3. Confirmed visual regression harness still limited to Quarterly view (WebGL scenes require framebuffer capture; not wired).
+
+**Decisions Made:**
+- Keep tile assets unused for now; prioritize sprite/audio wiring first.
+- Maintain container-based flipping to cover procedural rendering.
+
+**Blockers:**
+- WebGL scene screenshots still not capturable without canvas readback.
+
+**Next Session:**
+- Wire tiles or explicitly remove from render path to avoid dead assets.
+- Add framebuffer capture for Monthly/Weekly/Daily VRT if needed.
