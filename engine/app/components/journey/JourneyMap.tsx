@@ -19,6 +19,15 @@ import {
   JourneyQuarter,
   MILESTONE_CATEGORY_INFO,
 } from "@/app/data/milestones";
+
+interface GeneratedSprite {
+  id: string;
+  name: string;
+  category: string;
+  size: string;
+  spritePath: string;
+  generatedAt: string;
+}
 import dynamic from "next/dynamic";
 import type { PhaserGameHandle } from "../game/phaser/PhaserGame";
 
@@ -35,6 +44,7 @@ interface JourneyMapProps {
   userProgress?: number; // 0-100 percentage through the journey
   completedMilestones?: string[]; // IDs of completed milestones
   currentQuarter?: 1 | 2 | 3 | 4;
+  editMode?: boolean; // Enable drag-and-drop editing
   onMilestoneClick?: (milestone: HealthMilestone) => void;
 }
 
@@ -53,26 +63,23 @@ function generateJourneyGrid(
     }))
   );
 
-  // Generate path tiles connecting milestones
-  const pathTiles = generateJourneyPath(milestones, (completedMilestones.length / milestones.length) * 100);
+  // First, place milestone buildings (so path doesn't overwrite them)
+  const buildingTiles = new Set<string>();
   
-  for (const tile of pathTiles) {
-    if (tile.x >= 0 && tile.x < GRID_WIDTH && tile.y >= 0 && tile.y < GRID_HEIGHT) {
-      // Use Road for completed, Tile for incomplete path
-      grid[tile.y][tile.x].type = tile.completed ? TileType.Road : TileType.Tile;
-    }
-  }
-
-  // Place milestone buildings
   for (const milestone of milestones) {
     const pos = calculateMilestonePosition(milestone.order);
     const building = getBuilding(milestone.buildingId);
     
-    if (!building) continue;
+    if (!building) {
+      console.warn(`Building not found: ${milestone.buildingId} for milestone ${milestone.name}`);
+      continue;
+    }
     
     const footprint = building.footprint;
     const originX = pos.x;
     const originY = pos.y;
+
+    console.log(`Placing ${milestone.name} at (${originX}, ${originY}) with footprint ${footprint.width}x${footprint.height}`);
 
     // Check bounds
     if (
@@ -81,6 +88,7 @@ function generateJourneyGrid(
       originX + footprint.width > GRID_WIDTH ||
       originY + footprint.height > GRID_HEIGHT
     ) {
+      console.warn(`Milestone ${milestone.name} out of bounds at (${originX}, ${originY})`);
       continue;
     }
 
@@ -95,10 +103,26 @@ function generateJourneyGrid(
           grid[py][px].isOrigin = dx === 0 && dy === 0;
           grid[py][px].originX = originX;
           grid[py][px].originY = originY;
+          buildingTiles.add(`${px},${py}`);
         }
       }
     }
   }
+
+  // Then generate path tiles connecting milestones (skip building tiles)
+  const pathTiles = generateJourneyPath(milestones, (completedMilestones.length / milestones.length) * 100);
+  
+  for (const tile of pathTiles) {
+    const key = `${tile.x},${tile.y}`;
+    if (tile.x >= 0 && tile.x < GRID_WIDTH && tile.y >= 0 && tile.y < GRID_HEIGHT) {
+      // Don't overwrite building tiles
+      if (!buildingTiles.has(key)) {
+        grid[tile.y][tile.x].type = tile.completed ? TileType.Road : TileType.Tile;
+      }
+    }
+  }
+
+  console.log(`Generated grid with ${buildingTiles.size} building tiles and ${pathTiles.length} path tiles`);
 
   return grid;
 }
@@ -107,29 +131,57 @@ export default function JourneyMap({
   userProgress = 0,
   completedMilestones = [],
   currentQuarter = 1,
+  editMode = false,
   onMilestoneClick,
 }: JourneyMapProps) {
   const milestones = getAllMilestones();
   const [grid, setGrid] = useState<GridCell[][]>(() =>
     generateJourneyGrid(milestones, completedMilestones)
   );
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.5); // Start zoomed out to see more
   const [selectedMilestone, setSelectedMilestone] = useState<HealthMilestone | null>(null);
   const [showQuarterPanel, setShowQuarterPanel] = useState(true);
+  const [selectedTool, setSelectedTool] = useState<ToolType>(ToolType.None);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [generatedSprites, setGeneratedSprites] = useState<GeneratedSprite[]>([]);
+  const [showSpritePalette, setShowSpritePalette] = useState(false);
 
   const phaserGameRef = useRef<PhaserGameHandle>(null);
+
+  // Load generated sprites when in edit mode
+  useEffect(() => {
+    if (editMode) {
+      fetch('/api/sprites')
+        .then(res => res.json())
+        .then(data => {
+          setGeneratedSprites(data.sprites || []);
+        })
+        .catch(err => console.error('Failed to load sprites:', err));
+    }
+  }, [editMode]);
 
   // Regenerate grid when progress changes
   useEffect(() => {
     setGrid(generateJourneyGrid(milestones, completedMilestones));
-  }, [completedMilestones.length]);
+  }, [completedMilestones.length, milestones]);
 
-  // Spawn user avatar on the path
+  // Center camera on milestones and spawn user avatar when game is ready
   useEffect(() => {
-    if (phaserGameRef.current) {
-      // Spawn character at user's current progress point
-      phaserGameRef.current.spawnCharacter();
-    }
+    const centerCamera = () => {
+      if (phaserGameRef.current) {
+        // Center on the first row of milestones
+        // Milestones are at x: 12, 22, 32 and start at y: 38, then go up
+        phaserGameRef.current.centerOnGridPosition(22, 32);
+        // Spawn character at user's current progress point
+        phaserGameRef.current.spawnCharacter();
+      } else {
+        setTimeout(centerCamera, 500);
+      }
+    };
+    
+    // Wait for Phaser to fully initialize
+    const timer = setTimeout(centerCamera, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   // Handle clicking on milestones
@@ -277,19 +329,126 @@ export default function JourneyMap({
         </button>
       </div>
 
+      {/* Edit Mode Toolbar */}
+      {editMode && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-orange-600/90 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3">
+          <span className="text-white text-sm font-medium">✏️ Edit Mode</span>
+          <div className="w-px h-6 bg-white/30" />
+          <button
+            onClick={() => {
+              setSelectedTool(ToolType.Building);
+              setShowSpritePalette(true);
+            }}
+            className={`px-3 py-1 rounded-lg text-sm ${
+              selectedTool === ToolType.Building
+                ? "bg-white text-orange-600"
+                : "text-white hover:bg-white/20"
+            }`}
+          >
+            🏠 Place
+          </button>
+          <button
+            onClick={() => {
+              setSelectedTool(ToolType.Eraser);
+              setShowSpritePalette(false);
+            }}
+            className={`px-3 py-1 rounded-lg text-sm ${
+              selectedTool === ToolType.Eraser
+                ? "bg-white text-orange-600"
+                : "text-white hover:bg-white/20"
+            }`}
+          >
+            🗑️ Erase
+          </button>
+          <button
+            onClick={() => {
+              setSelectedTool(ToolType.None);
+              setShowSpritePalette(false);
+            }}
+            className="px-3 py-1 rounded-lg text-sm text-white hover:bg-white/20"
+          >
+            ✋ Pan
+          </button>
+          <div className="w-px h-6 bg-white/30" />
+          <span className="text-white/60 text-xs">
+            {generatedSprites.length} sprites loaded
+          </span>
+        </div>
+      )}
+
+      {/* Sprite Palette (when in Place mode) */}
+      {editMode && showSpritePalette && (
+        <div className="absolute top-36 left-4 z-40 bg-gray-900/95 backdrop-blur-sm rounded-xl p-3 w-48 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-white text-sm font-medium">🎨 Sprites</h3>
+            <button 
+              onClick={() => setShowSpritePalette(false)}
+              className="text-white/60 hover:text-white text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {generatedSprites.length === 0 ? (
+            <div className="text-gray-400 text-xs py-4 text-center">
+              No sprites yet.<br/>
+              <a 
+                href="http://localhost:3001" 
+                target="_blank" 
+                className="text-green-400 hover:underline"
+              >
+                Generate some →
+              </a>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {generatedSprites.map(sprite => (
+                <button
+                  key={sprite.id}
+                  onClick={() => setSelectedBuildingId(sprite.id)}
+                  className={`p-2 rounded-lg border-2 transition-colors ${
+                    selectedBuildingId === sprite.id
+                      ? "border-orange-500 bg-orange-500/20"
+                      : "border-transparent bg-gray-800 hover:bg-gray-700"
+                  }`}
+                >
+                  <img 
+                    src={sprite.spritePath} 
+                    alt={sprite.name}
+                    className="w-full h-16 object-contain bg-white rounded"
+                  />
+                  <div className="text-white text-[10px] mt-1 truncate">{sprite.name}</div>
+                  <div className="text-gray-500 text-[9px]">{sprite.size}</div>
+                </button>
+              ))}
+            </div>
+          )}
+          
+          <div className="mt-3 pt-2 border-t border-gray-700">
+            <a
+              href="http://localhost:3001"
+              target="_blank"
+              className="block w-full text-center py-2 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700"
+            >
+              + Generate New Sprite
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Game Canvas */}
       <div className="absolute inset-0 pt-16">
         <PhaserGame
           ref={phaserGameRef}
           grid={grid}
-          selectedTool={ToolType.None}
-          selectedBuildingId={null}
+          selectedTool={editMode ? selectedTool : ToolType.None}
+          selectedBuildingId={editMode ? selectedBuildingId : null}
           buildingOrientation={Direction.Down}
           zoom={zoom}
           onTileClick={handleTileClick}
           onZoomChange={handleZoomChange}
           showPaths={false}
-          showStats={false}
+          showStats={editMode}
         />
       </div>
 

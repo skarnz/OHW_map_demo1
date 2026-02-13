@@ -26,6 +26,7 @@ export interface PhaserGameHandle {
   shakeScreen: (axis?: "x" | "y", intensity?: number, duration?: number) => void;
   zoomAtPoint: (zoom: number, screenX: number, screenY: number) => void;
   loadBuildingTextures: (buildingId: string) => Promise<void>;
+  centerOnGridPosition: (gridX: number, gridY: number) => void;
 }
 
 interface PhaserGameProps {
@@ -140,6 +141,11 @@ const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
             await sceneRef.current.loadBuildingTextures(buildingId);
           }
         },
+        centerOnGridPosition: (gridX: number, gridY: number) => {
+          if (sceneRef.current) {
+            sceneRef.current.centerOnGridPosition(gridX, gridY);
+          }
+        },
       }),
       []
     );
@@ -180,10 +186,30 @@ const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
       };
     }, []); // Only run once on mount
 
+    // Track last grid reference to avoid re-sending same grid
+    const lastGridRef = useRef<GridCell[][] | null>(null);
+    
     // Update grid when it changes (differential update in scene)
     useEffect(() => {
-      if (sceneRef.current && grid.length > 0) {
-        sceneRef.current.updateGrid(grid);
+      if (grid.length === 0) return;
+      if (grid === lastGridRef.current) return; // Same grid reference, skip
+      
+      // Wait for scene to be ready, then send grid
+      const sendGrid = () => {
+        if (sceneRef.current) {
+          lastGridRef.current = grid;
+          sceneRef.current.updateGrid(grid);
+        } else {
+          // Retry until scene is ready
+          setTimeout(sendGrid, 100);
+        }
+      };
+      
+      // Send immediately if scene is ready, otherwise wait
+      if (sceneRef.current) {
+        sendGrid();
+      } else {
+        setTimeout(sendGrid, 100);
       }
     }, [grid]);
 
@@ -251,14 +277,15 @@ const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
     return (
       <div
         ref={containerRef}
+        className="phaser-container"
         style={{
           width: "100%",
           height: "100%",
           overflow: "auto",
         }}
       >
-        <style jsx global>{`
-          canvas {
+        <style jsx>{`
+          .phaser-container :global(canvas) {
             image-rendering: pixelated;
             image-rendering: -moz-crisp-edges;
             image-rendering: crisp-edges;

@@ -117,6 +117,7 @@ export class MainScene extends Phaser.Scene {
 
   // Scene ready flag
   private isReady: boolean = false;
+  private hasReceivedRealGrid: boolean = false;
 
   // GIF animations loaded flag
   private gifsLoaded: boolean = false;
@@ -1353,6 +1354,17 @@ export class MainScene extends Phaser.Scene {
 
   // Receive grid updates from React (differential update)
   updateGrid(newGrid: GridCell[][]): void {
+    // Check if this is the first REAL grid from React (not the placeholder grass grid)
+    if (!this.hasReceivedRealGrid) {
+      // First real grid - do full render
+      this.hasReceivedRealGrid = true;
+      this.grid = newGrid;
+      if (this.isReady) {
+        this.renderGrid();
+      }
+      return;
+    }
+    
     // Find changed tiles and mark for update
     for (let y = 0; y < GRID_HEIGHT; y++) {
       for (let x = 0; x < GRID_WIDTH; x++) {
@@ -1735,6 +1747,21 @@ export class MainScene extends Phaser.Scene {
     this.zoomLevel = zoom;
   }
 
+  // Center the camera on a specific grid position
+  centerOnGridPosition(gridX: number, gridY: number): void {
+    if (!this.isReady) return;
+    
+    const camera = this.cameras.main;
+    const screenPos = this.gridToScreen(gridX, gridY);
+    
+    camera.centerOn(screenPos.x, screenPos.y);
+    camera.scrollX = Math.round(camera.scrollX);
+    camera.scrollY = Math.round(camera.scrollY);
+    
+    this.baseScrollX = camera.scrollX;
+    this.baseScrollY = camera.scrollY;
+  }
+  
   setShowPaths(show: boolean): void {
     this.showPaths = show;
     if (this.isReady) {
@@ -1922,8 +1949,10 @@ export class MainScene extends Phaser.Scene {
     const key = `building_${originX},${originY}`;
     const textureKey = this.getBuildingTextureKey(building, orientation);
 
+
+
     if (!this.textures.exists(textureKey)) {
-      console.warn(`Texture not found: ${textureKey}`);
+      console.warn(`Texture not found: ${textureKey}, available textures:`, this.textures.list);
       return;
     }
 

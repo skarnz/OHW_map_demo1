@@ -51,7 +51,6 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  image-rendering: pixelated;
   /* TODO: Add custom cursor - cursor: url('/UI/cursor.png') 0 0, auto; */
 }
 
