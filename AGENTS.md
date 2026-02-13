@@ -13,6 +13,8 @@ This file helps AI agents (Claude, Droid, etc.) understand project context and c
 | **Phase Tracker** | `.droid/phases/overview.md` |
 | **Figma File** | `DDIpRwZyK7uCHtl2RBXs6Y` |
 | **Platform** | **Expo + Pixi.js v8 + expo-gl** (NOT Phaser/WebView) |
+| **Debug Log** | `engine-v3/__snapshots__/TESTING.md` -- viewport bugs, pixel ratio fix, hot reload fix |
+| **Critical Bug** | ISSUE-001 (pixel ratio mismatch) fix committed but **not yet verified on device** |
 
 ---
 
