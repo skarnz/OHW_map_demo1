@@ -557,17 +557,17 @@ async function generateAllAssets() {
 ### Phase 4: Art + Polish (Week 4-5)
 **Goal:** TinySwords-quality visuals
 
-- [ ] Generate Q1 Wilderness biome assets (Nano Banana) *(needs OPENROUTER_API_KEY)*
-- [ ] Generate Q2 Town biome assets
-- [ ] Generate Q3 Suburbs biome assets
-- [ ] Generate Q4 City biome assets
+- [x] Generate Q1 Wilderness biome assets (Gemini 2.5 Flash Image via OpenRouter)
+- [x] Generate Q2 Town biome assets
+- [x] Generate Q3 Suburbs biome assets
+- [x] Generate Q4 City biome assets
 - [x] Decorative props along paths *(procedural vector props with seasonal palette tinting)*
-- [x] Node icons for each task type *(Pillow-generated 48x48 PNGs; procedural Graphics used at runtime)*
+- [x] Node icons for each task type *(Gemini-generated 48x48 PNGs; sprite + procedural fallback at runtime)*
 - [x] UI polish (back button, progress indicators)
 - [x] Asset manifest validation *(manifest validates; all 42 assets exist on disk; smoke test checks disk presence)*
+- [x] Wire sprite-based rendering *(asset registry with static require(), PIXI.Assets, Sprite nodes with procedural fallback)*
 
 **Deliverable:** Looks polished, consistent art style
-**Remaining:** Gemini-quality sprite generation for 4 biomes (blocked on API key)
 
 ### Phase 5: Full Journey + Testing (Week 5-6)
 **Goal:** Production-ready
@@ -576,7 +576,7 @@ async function generateAllAssets() {
 - [x] Seasonal palette system (4 seasons × 4 biomes, RGB tint multipliers)
 - [x] Performance optimization (GraphicsPool object pooling for scene rebuilds; texture atlases deferred to sprite upgrade)
 - [x] Real data integration scaffold (useJourneyData hook wired into navigator; Supabase connection deferred)
-- [ ] Visual regression tests
+- [x] Visual regression tests *(Playwright + web export; baseline screenshots + pixel diff comparison)*
 - [ ] Performance benchmarks (60fps on mid-range Android) *(needs physical device)*
 - [x] Error boundaries and fallbacks (ErrorBoundary wraps app with retry)
 - [x] Android + iOS prebuild *(both platforms prebuild successfully; iOS simulator verified; Android untested on device)*

@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# visual regression test artifacts (update with --update flag)
+__snapshots__/diffs/
+__snapshots__/*.current.png

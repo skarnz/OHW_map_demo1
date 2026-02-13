@@ -5,6 +5,7 @@ import { GLView, ExpoWebGLRenderingContext } from 'expo-gl';
 import {
   Application,
   Container,
+  Sprite,
   Text as PixiText,
   TextStyle,
   DOMAdapter,
@@ -17,6 +18,7 @@ import { AvatarController } from '../avatar/AvatarController';
 import { CelebrationEffect } from '../effects/CelebrationEffect';
 import { generateProps, renderProps } from '../props/PropsRenderer';
 import { SoundManager } from '../audio/SoundManager';
+import { preloadAssets, getNodeTexture } from '../assets/loader';
 
 const NODE_RADIUS = 22;
 
@@ -177,6 +179,9 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
 
     // Init sound
     SoundManager.shared().init();
+
+    // Preload sprite textures (non-blocking; procedural fallback if loading fails)
+    preloadAssets().catch(() => {});
 
     // Build scene
     rebuildScene(world, propsRef.current, callbacksRef.current, dimensions);
@@ -532,30 +537,43 @@ function buildNode(
   bg.stroke({ width: 2.5, color: NODE_BORDERS[state] });
   c.addChild(bg);
 
-  const iconMap: Record<string, string> = {
-    medication: '\u{1F48A}',
-    nutrition: '\u{1F957}',
-    movement: '\u{1F3C3}',
-    wellness: '\u{1F9D8}',
-    checkin: '\u{1F4DD}',
-  };
+  // Try sprite-based icon first
+  const nodeType = node.type === 'task' ? 'day' : node.type;
+  const spriteTexture = getNodeTexture(nodeType as 'week' | 'day', state, node.category);
 
-  let iconText = '';
-  if (state === 'locked') iconText = '\u{1F512}';
-  else if (state === 'completed') iconText = '\u2713';
-  else if (state === 'skipped') iconText = '\u2014';
-  else if (node.category && iconMap[node.category]) iconText = iconMap[node.category];
-  else iconText = node.label?.substring(0, 2) || '\u2022';
+  if (spriteTexture) {
+    const icon = new Sprite(spriteTexture);
+    icon.anchor.set(0.5);
+    icon.width = NODE_RADIUS * 1.6;
+    icon.height = NODE_RADIUS * 1.6;
+    c.addChild(icon);
+  } else {
+    // Fallback: emoji/text icons
+    const iconMap: Record<string, string> = {
+      medication: '\u{1F48A}',
+      nutrition: '\u{1F957}',
+      movement: '\u{1F3C3}',
+      wellness: '\u{1F9D8}',
+      checkin: '\u{1F4DD}',
+    };
 
-  const style = new TextStyle({
-    fontSize: state === 'completed' || state === 'skipped' ? 18 : 14,
-    fill: state === 'locked' ? '#999' : state === 'completed' ? '#fff' : '#333',
-    fontWeight: 'bold',
-    align: 'center',
-  });
-  const txt = new PixiText({ text: iconText, style });
-  txt.anchor.set(0.5);
-  c.addChild(txt);
+    let iconText = '';
+    if (state === 'locked') iconText = '\u{1F512}';
+    else if (state === 'completed') iconText = '\u2713';
+    else if (state === 'skipped') iconText = '\u2014';
+    else if (node.category && iconMap[node.category]) iconText = iconMap[node.category];
+    else iconText = node.label?.substring(0, 2) || '\u2022';
+
+    const style = new TextStyle({
+      fontSize: state === 'completed' || state === 'skipped' ? 18 : 14,
+      fill: state === 'locked' ? '#999' : state === 'completed' ? '#fff' : '#333',
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    const txt = new PixiText({ text: iconText, style });
+    txt.anchor.set(0.5);
+    c.addChild(txt);
+  }
 
   if (node.label && state !== 'locked') {
     const lStyle = new TextStyle({
