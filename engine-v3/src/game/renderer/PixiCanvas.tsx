@@ -83,11 +83,14 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
 
     console.log(`[PixiCanvas] onContextCreate: scene=${propsRef.current.sceneType}, dims=${dimensions.width}x${dimensions.height}, drawBuf=${gl.drawingBufferWidth}x${gl.drawingBufferHeight}`);
 
-    // expo-gl creates a framebuffer at native pixel resolution.
-    // We must tell Pixi the actual pixel size so rendering fills the full view.
+    // expo-gl creates a framebuffer at native pixel resolution (e.g. 3x on Retina).
+    // We tell Pixi the logical size and set resolution = pixelRatio so it
+    // renders at the full native resolution while keeping coordinates in points.
     const scale = Platform.OS === 'web' ? 1 : PixelRatio.get();
     scaleRef.current = scale;
     glRef.current = gl;
+    // Mock canvas must report the GL framebuffer's actual pixel dimensions
+    // so Pixi's WebGL renderer sets the viewport correctly.
     const glWidth = gl.drawingBufferWidth || dimensions.width * scale;
     const glHeight = gl.drawingBufferHeight || dimensions.height * scale;
     const mockCanvas = createMockCanvas(gl, glWidth, glHeight);
@@ -137,11 +140,11 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     try {
       await app.init({
         canvas: mockCanvas as unknown as HTMLCanvasElement,
-        width: glWidth,
-        height: glHeight,
+        width: dimensions.width,
+        height: dimensions.height,
         backgroundColor: getSeasonalPalette(propsRef.current.biome, propsRef.current.season).ground,
         antialias: true,
-        resolution: 1,
+        resolution: scale,
         preference: 'webgl',
         autoDensity: false,
         resizeTo: undefined,
@@ -152,9 +155,10 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       try {
         await app.init({
           canvas: mockCanvas as unknown as HTMLCanvasElement,
-          width: glWidth,
-          height: glHeight,
+          width: dimensions.width,
+          height: dimensions.height,
           backgroundColor: getSeasonalPalette(propsRef.current.biome, propsRef.current.season).ground,
+          resolution: scale,
           preference: 'webgl',
           autoDensity: false,
           resizeTo: undefined,
@@ -167,13 +171,11 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     }
 
     appRef.current = app;
-    console.log(`[PixiCanvas] Pixi init success: ${glWidth}x${glHeight}, scale=${scale}`);
+    console.log(`[PixiCanvas] Pixi init success: logical=${dimensions.width}x${dimensions.height}, resolution=${scale}, glBuf=${glWidth}x${glHeight}`);
 
     const world = new Container();
     world.label = 'world';
     world.sortableChildren = true;
-    // Scale world so logical point coordinates map to native pixel canvas
-    world.scale.set(scale);
     app.stage.addChild(world);
     worldRef.current = world;
 
@@ -218,10 +220,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       const cam = cameraRef.current;
       cam.x += (cam.tx - cam.x) * 0.12;
       cam.y += (cam.ty - cam.y) * 0.12;
-      // Camera offset is in logical points; multiply by scale for pixel-space
-      const s = scaleRef.current;
-      world.x = -cam.x * s;
-      world.y = -cam.y * s;
+      world.x = -cam.x;
+      world.y = -cam.y;
 
       // Update avatar
       if (avatarRef.current) {
@@ -274,10 +274,23 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
       const pos = resolveNodePos(node, dims.width);
-      // Place avatar at bottom 70% of screen so the path stretches upward
-      const targetY = pos.y - dims.height * 0.7;
+      const targetY = pos.y - dims.height / 2;
       const targetX = pos.x - dims.width / 2;
       const { tx, ty } = clampCameraTarget(targetX, targetY, dims, bounds);
+      cameraRef.current.x = tx;
+      cameraRef.current.y = ty;
+      cameraRef.current.tx = tx;
+      cameraRef.current.ty = ty;
+    } else if (nodes.length) {
+      // Fallback: center on path bounds if avatar node missing
+      const resolved = nodes.map(n => resolveNodePos(n, dims.width));
+      const minX = Math.min(...resolved.map(n => n.x));
+      const maxX = Math.max(...resolved.map(n => n.x));
+      const minY = Math.min(...resolved.map(n => n.y));
+      const maxY = Math.max(...resolved.map(n => n.y));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const { tx, ty } = clampCameraTarget(centerX - dims.width / 2, centerY - dims.height / 2, dims, bounds);
       cameraRef.current.x = tx;
       cameraRef.current.y = ty;
       cameraRef.current.tx = tx;
@@ -450,7 +463,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
             if (!dragRef.current.active) return;
             const dx = e.nativeEvent.pageX - dragRef.current.lx;
             const dy = e.nativeEvent.pageY - dragRef.current.ly;
-            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragRef.current.moved = true;
+            if (Math.abs(dx) > 12 || Math.abs(dy) > 12) dragRef.current.moved = true;
             const nextTx = cameraRef.current.tx - dx;
             const nextTy = cameraRef.current.ty - dy;
             const { tx, ty } = clampCameraTarget(nextTx, nextTy, dimensions, boundsRef);
