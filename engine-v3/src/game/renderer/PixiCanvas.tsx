@@ -62,6 +62,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   const boundsRef = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
   const avatarNodeRef = useRef<string>('');
   const scaleRef = useRef(1);
+  const glRef = useRef<ExpoWebGLRenderingContext | null>(null);
 
   const propsRef = useRef(sceneProps);
   const callbacksRef = useRef(callbacks);
@@ -78,32 +79,33 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   const onContextCreate = useCallback(async (gl: ExpoWebGLRenderingContext) => {
     if (dimensions.width === 0) return;
 
+    console.log(`[PixiCanvas] onContextCreate: scene=${propsRef.current.sceneType}, dims=${dimensions.width}x${dimensions.height}, drawBuf=${gl.drawingBufferWidth}x${gl.drawingBufferHeight}`);
+
     // expo-gl creates a framebuffer at native pixel resolution.
     // We must tell Pixi the actual pixel size so rendering fills the full view.
     const scale = Platform.OS === 'web' ? 1 : PixelRatio.get();
     scaleRef.current = scale;
+    glRef.current = gl;
     const glWidth = gl.drawingBufferWidth || dimensions.width * scale;
     const glHeight = gl.drawingBufferHeight || dimensions.height * scale;
     const mockCanvas = createMockCanvas(gl, glWidth, glHeight);
 
     // On native, override Pixi's DOMAdapter so internal createCanvas()
     // calls return mock objects instead of touching the DOM.
-    // The pixiNativeSetup shim handles document/window/globalThis polyfills,
-    // but DOMAdapter.createCanvas needs to return objects with working
-    // getContext('2d') for text measurement and getContext('webgl') for rendering.
+    // IMPORTANT: DOMAdapter is a global singleton. The createCanvas closure
+    // must use glRef.current (not the captured `gl`) so that when scenes
+    // transition (monthly->weekly), the new GL context is used.
     if (Platform.OS !== 'web') {
       DOMAdapter.set({
         createCanvas: (w?: number, h?: number) => {
-          // Use the document.createElement shim which provides getContext('2d')
           const el = (globalThis as Record<string, unknown>).document as Record<string, (...args: unknown[]) => unknown>;
           const c = el.createElement('canvas') as Record<string, unknown>;
           c.width = w ?? glWidth;
           c.height = h ?? glHeight;
-          // Override WebGL context to return the expo-gl context
           const origGetContext = c.getContext as (type: string) => unknown;
           c.getContext = (type: string) => {
             if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
-              return gl as unknown;
+              return (glRef.current ?? gl) as unknown;
             }
             return origGetContext(type);
           };
@@ -163,6 +165,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     }
 
     appRef.current = app;
+    console.log(`[PixiCanvas] Pixi init success: ${glWidth}x${glHeight}, scale=${scale}`);
 
     const world = new Container();
     world.label = 'world';
@@ -201,10 +204,12 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     preloadAssets().catch(() => {});
 
     // Build scene
+    console.log(`[PixiCanvas] Building scene: ${propsRef.current.pathNodes.length} nodes, avatar=${propsRef.current.avatarPosition}`);
     rebuildScene(world, propsRef.current, callbacksRef.current, dimensions);
 
     // Center camera on avatar position
     centerCameraOnNode(propsRef.current.avatarPosition, propsRef.current.pathNodes, dimensions, boundsRef);
+    console.log(`[PixiCanvas] Camera: tx=${cameraRef.current.tx.toFixed(0)}, ty=${cameraRef.current.ty.toFixed(0)}, bounds=${JSON.stringify(boundsRef.current)}`);
 
     // Render loop
     app.ticker.add((ticker) => {
