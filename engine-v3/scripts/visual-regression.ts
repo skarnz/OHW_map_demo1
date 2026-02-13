@@ -36,8 +36,11 @@ interface ScreenshotSpec {
   waitMs: number;
 }
 
+// Only the quarterly view (React Native UI) is capturable via DOM screenshots.
+// Monthly/Weekly/Daily render inside WebGL via expo-gl/Pixi.js and would
+// need canvas.toDataURL() or framebuffer capture to screenshot -- not yet wired.
 const SCREENSHOTS: ScreenshotSpec[] = [
-  { name: 'quarterly-view', waitMs: 1500 },
+  { name: 'quarterly-view', waitMs: 2000 },
 ];
 
 async function main() {

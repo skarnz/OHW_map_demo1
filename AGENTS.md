@@ -8,7 +8,7 @@ This file helps AI agents (Claude, Droid, etc.) understand project context and c
 
 | Item | Value |
 |------|-------|
-| **Current Phase** | Phases 1-3 complete, Phase 4-5 in progress (art blocked on API key, perf/Android pending) |
+| **Current Phase** | Phases 1-5 complete. Only outstanding: perf benchmarks on physical device. |
 | **Active Doc** | `docs/V3_REVISED_PLAN.md` (supersedes ORTHOGONAL_CONVERSION_PLAN.md) |
 | **Phase Tracker** | `.droid/phases/overview.md` |
 | **Figma File** | `DDIpRwZyK7uCHtl2RBXs6Y` |
@@ -319,7 +319,7 @@ Pixi.js v8 on React Native required 3 layers of polyfilling:
 **Blockers:**
 - macOS accessibility permissions prevent automated simulator taps
 - Audio assets not yet generated (SoundManager is a no-op)
-- Sprite assets not yet generated (using procedural Graphics)
+- Sprite assets generated via Gemini (avatar uses sprites with procedural fallback)
 
 **Next Session:**
 - Generate biome assets with Gemini (Phase 4 completion)
@@ -362,7 +362,7 @@ Pixi.js v8 on React Native required 3 layers of polyfilling:
 
 **Verification:**
 - TypeScript: clean
-- Smoke tests: 379 core + 41 Pixi = 420 passing, 0 failed
+- Smoke tests: 379 core + 48 Pixi = 427 passing, 0 failed
 - Web export: builds successfully
 
 **Decisions Made:**

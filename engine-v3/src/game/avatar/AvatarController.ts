@@ -1,12 +1,13 @@
-import { Container, Graphics, Ticker } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, Ticker } from 'pixi.js';
 import { PathNode } from '../contracts';
+import { getTexture } from '../assets/loader';
 
 export type AvatarState = 'idle' | 'walking' | 'celebrating';
 
 const WALK_SPEED = 2.5;
 const CELEBRATE_DURATION = 60;
 
-// Colors
+// Procedural drawing colors
 const SKIN = 0xFFD4A3;
 const SKIN_DARK = 0xE6BE8A;
 const SHIRT = 0x0A84FF;
@@ -17,11 +18,20 @@ const HAIR = 0x5C3A1E;
 const EYE = 0x333333;
 const CHEEK = 0xFFB5A3;
 
+interface SpriteFrames {
+  idle: Texture[];
+  walk: Texture[];
+  celebrate: Texture[];
+}
+
 export class AvatarController {
   public container: Container;
   public state: AvatarState = 'idle';
 
   private bodyGroup: Container;
+  private sprite: Sprite | null = null;
+  private frames: SpriteFrames | null = null;
+  private useSprites = false;
 
   private walkPath: { x: number; y: number }[] = [];
   private walkIndex = 0;
@@ -44,7 +54,37 @@ export class AvatarController {
     this.bodyGroup.label = 'body-group';
     this.container.addChild(this.bodyGroup);
 
+    this.loadSpriteFrames();
     this.drawFrame('idle', 0);
+  }
+
+  private loadSpriteFrames() {
+    const idle: Texture[] = [];
+    const walk: Texture[] = [];
+    const celebrate: Texture[] = [];
+
+    for (let i = 1; i <= 4; i++) {
+      const t = getTexture(`avatar/idle/frame${i}.png`);
+      if (t) idle.push(t);
+    }
+    for (let i = 1; i <= 6; i++) {
+      const t = getTexture(`avatar/walk/frame${i}.png`);
+      if (t) walk.push(t);
+    }
+    for (let i = 1; i <= 6; i++) {
+      const t = getTexture(`avatar/celebrate/frame${i}.png`);
+      if (t) celebrate.push(t);
+    }
+
+    if (idle.length > 0 && walk.length > 0 && celebrate.length > 0) {
+      this.frames = { idle, walk, celebrate };
+      this.useSprites = true;
+
+      this.sprite = new Sprite(idle[0]);
+      this.sprite.anchor.set(0.5, 1);
+      this.sprite.y = 22; // feet at bottom
+      this.bodyGroup.addChild(this.sprite);
+    }
   }
 
   setPosition(x: number, y: number) {
@@ -159,11 +199,50 @@ export class AvatarController {
     const t = Ticker.shared.lastTime * 0.002;
     const breathe = Math.sin(t) * 0.5;
     this.bodyGroup.y = breathe;
+
+    // Cycle idle frames when using sprites
+    if (this.useSprites && this.frames && this.sprite) {
+      const frameIdx = Math.floor((Ticker.shared.lastTime * 0.003) % this.frames.idle.length);
+      this.sprite.texture = this.frames.idle[frameIdx];
+    }
   }
 
   private drawFrame(anim: AvatarState, frame: number) {
-    // Clear and redraw. Pixi Graphics are lightweight enough for this.
+    if (this.useSprites && this.frames && this.sprite) {
+      this.drawSpriteFrame(anim, frame);
+    } else {
+      this.drawProceduralFrame(anim, frame);
+    }
+  }
+
+  private drawSpriteFrame(anim: AvatarState, frame: number) {
+    if (!this.frames || !this.sprite) return;
+
+    let textures: Texture[];
+    switch (anim) {
+      case 'walking':
+        textures = this.frames.walk;
+        break;
+      case 'celebrating':
+        textures = this.frames.celebrate;
+        break;
+      default:
+        textures = this.frames.idle;
+        break;
+    }
+
+    const idx = Math.floor(frame * 0.15) % textures.length;
+    this.sprite.texture = textures[idx];
+  }
+
+  private drawProceduralFrame(anim: AvatarState, frame: number) {
     this.bodyGroup.removeChildren();
+
+    // Re-add sprite if it exists (it was removed by removeChildren)
+    if (this.sprite) {
+      this.bodyGroup.addChild(this.sprite);
+      this.sprite.visible = false;
+    }
 
     const g = new Graphics();
     this.bodyGroup.addChild(g);
@@ -178,60 +257,47 @@ export class AvatarController {
   }
 
   private drawIdlePose(g: Graphics) {
-    // Shadow
     g.ellipse(0, 20, 12, 4);
     g.fill({ color: 0x000000, alpha: 0.15 });
 
-    // Legs
     g.roundRect(-7, 8, 5, 12, 2);
     g.fill({ color: PANTS });
     g.roundRect(2, 8, 5, 12, 2);
     g.fill({ color: PANTS });
 
-    // Shoes
     g.roundRect(-8, 18, 7, 4, 1);
     g.fill({ color: SHOE });
     g.roundRect(1, 18, 7, 4, 1);
     g.fill({ color: SHOE });
 
-    // Body
     g.roundRect(-10, -8, 20, 18, 6);
     g.fill({ color: SHIRT });
-    // Shirt stripe
     g.roundRect(-3, -4, 6, 10, 2);
     g.fill({ color: SHIRT_DARK });
 
-    // Arms (at sides)
     g.roundRect(-14, -4, 5, 12, 2);
     g.fill({ color: SKIN });
     g.roundRect(9, -4, 5, 12, 2);
     g.fill({ color: SKIN });
 
-    // Head
     g.circle(0, -16, 11);
     g.fill({ color: SKIN });
 
-    // Hair
     g.arc(0, -18, 11, Math.PI, 0);
     g.fill({ color: HAIR });
-    // Hair fringe
     g.roundRect(-9, -24, 6, 5, 2);
     g.fill({ color: HAIR });
 
-    // Face
     g.circle(-4, -17, 1.8);
     g.fill({ color: EYE });
     g.circle(4, -17, 1.8);
     g.fill({ color: EYE });
-    // Eye highlights
     g.circle(-3.5, -17.5, 0.6);
     g.fill({ color: 0xFFFFFF });
     g.circle(4.5, -17.5, 0.6);
     g.fill({ color: 0xFFFFFF });
-    // Mouth
     g.arc(0, -12, 3, 0.1, Math.PI - 0.1);
     g.stroke({ width: 1.2, color: 0xCC8866 });
-    // Cheeks
     g.circle(-7, -13, 2.5);
     g.fill({ color: CHEEK, alpha: 0.35 });
     g.circle(7, -13, 2.5);
@@ -241,48 +307,40 @@ export class AvatarController {
   private drawWalkPose(g: Graphics, frame: number) {
     const swing = Math.sin(frame * 0.4) * 6;
 
-    // Shadow (moves with stride)
     g.ellipse(swing * 0.2, 20, 12, 4);
     g.fill({ color: 0x000000, alpha: 0.15 });
 
-    // Legs (alternating stride)
     g.roundRect(-7 + swing, 8, 5, 12, 2);
     g.fill({ color: PANTS });
     g.roundRect(2 - swing, 8, 5, 12, 2);
     g.fill({ color: PANTS });
 
-    // Shoes
     g.roundRect(-8 + swing, 18, 7, 4, 1);
     g.fill({ color: SHOE });
     g.roundRect(1 - swing, 18, 7, 4, 1);
     g.fill({ color: SHOE });
 
-    // Body (slight lean forward)
     const lean = 1;
     g.roundRect(-10 + lean, -8, 20, 18, 6);
     g.fill({ color: SHIRT });
     g.roundRect(-3 + lean, -4, 6, 10, 2);
     g.fill({ color: SHIRT_DARK });
 
-    // Arms (swinging opposite to legs)
     const armSwing = Math.sin(frame * 0.4) * 8;
     g.roundRect(-14 + lean, -4 - armSwing, 5, 12, 2);
     g.fill({ color: SKIN });
     g.roundRect(9 + lean, -4 + armSwing, 5, 12, 2);
     g.fill({ color: SKIN });
 
-    // Head (slight bob)
     const bob = Math.abs(Math.sin(frame * 0.4)) * 1.5;
     g.circle(lean, -16 - bob, 11);
     g.fill({ color: SKIN });
 
-    // Hair
     g.arc(lean, -18 - bob, 11, Math.PI, 0);
     g.fill({ color: HAIR });
     g.roundRect(-9 + lean, -24 - bob, 6, 5, 2);
     g.fill({ color: HAIR });
 
-    // Face
     g.circle(-4 + lean, -17 - bob, 1.8);
     g.fill({ color: EYE });
     g.circle(4 + lean, -17 - bob, 1.8);
@@ -300,61 +358,49 @@ export class AvatarController {
   }
 
   private drawCelebratePose(g: Graphics, frame: number) {
-    // Shadow
     g.ellipse(0, 20, 14, 5);
     g.fill({ color: 0x000000, alpha: 0.12 });
 
-    // Legs (spread slightly)
     g.roundRect(-9, 8, 5, 12, 2);
     g.fill({ color: PANTS });
     g.roundRect(4, 8, 5, 12, 2);
     g.fill({ color: PANTS });
 
-    // Shoes
     g.roundRect(-10, 18, 7, 4, 1);
     g.fill({ color: SHOE });
     g.roundRect(3, 18, 7, 4, 1);
     g.fill({ color: SHOE });
 
-    // Body (slightly puffed up)
     g.roundRect(-11, -9, 22, 19, 6);
     g.fill({ color: SHIRT });
     g.roundRect(-3, -5, 6, 10, 2);
     g.fill({ color: SHIRT_DARK });
 
-    // Arms (raised up in celebration, waving)
     const wave = Math.sin(frame * 0.5) * 10;
     g.roundRect(-16, -18 + wave, 5, 14, 2);
     g.fill({ color: SKIN });
     g.roundRect(11, -18 - wave, 5, 14, 2);
     g.fill({ color: SKIN });
 
-    // Head
     g.circle(0, -16, 11);
     g.fill({ color: SKIN });
 
-    // Hair
     g.arc(0, -18, 11, Math.PI, 0);
     g.fill({ color: HAIR });
     g.roundRect(-9, -24, 6, 5, 2);
     g.fill({ color: HAIR });
 
-    // Happy face (big smile, squinted eyes)
-    // Squinted happy eyes
     g.arc(-4, -17, 2, Math.PI + 0.3, -0.3);
     g.stroke({ width: 1.8, color: EYE });
     g.arc(4, -17, 2, Math.PI + 0.3, -0.3);
     g.stroke({ width: 1.8, color: EYE });
-    // Big smile
     g.arc(0, -12, 4, 0.2, Math.PI - 0.2);
     g.stroke({ width: 1.5, color: 0xCC8866 });
-    // Rosy cheeks (more visible)
     g.circle(-7, -13, 3);
     g.fill({ color: CHEEK, alpha: 0.5 });
     g.circle(7, -13, 3);
     g.fill({ color: CHEEK, alpha: 0.5 });
 
-    // Star sparkles around character
     const sparklePhase = frame * 0.15;
     for (let i = 0; i < 3; i++) {
       const angle = sparklePhase + (i * Math.PI * 2) / 3;

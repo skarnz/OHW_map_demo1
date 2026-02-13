@@ -1,9 +1,12 @@
 /**
  * Asset loader: registers bundled PNGs with PIXI.Assets and provides
  * texture access with fallback to PIXI.Texture.WHITE.
+ *
+ * NOTE: This module must NOT import registry.ts at the top level because
+ * registry.ts imports 'react-native' (Platform), which breaks Node.js
+ * smoke tests. Registry is imported dynamically inside preloadAssets().
  */
 import * as PIXI from 'pixi.js';
-import { getAllAssetKeys, resolveAssetUri } from './registry';
 
 const loadedTextures = new Map<string, PIXI.Texture>();
 let preloaded = false;
@@ -15,17 +18,18 @@ let preloaded = false;
  */
 export async function preloadAssets(): Promise<Set<string>> {
   const loaded = new Set<string>();
+
+  // Dynamic import to avoid pulling react-native into non-RN contexts (smoke tests)
+  const { getAllAssetKeys, resolveAssetUri } = await import('./registry');
   const keys = getAllAssetKeys();
 
   for (const key of keys) {
-    // Skip non-image assets (audio)
     if (!key.endsWith('.png')) continue;
 
     try {
       const uri = await resolveAssetUri(key);
       if (!uri) continue;
 
-      // Add + load through PIXI.Assets
       if (!PIXI.Assets.resolver.hasKey(key)) {
         PIXI.Assets.add({ alias: key, src: uri });
       }
@@ -35,7 +39,7 @@ export async function preloadAssets(): Promise<Set<string>> {
         loaded.add(key);
       }
     } catch {
-      // Silently skip failed assets -- procedural fallback will be used
+      // Silently skip -- procedural fallback will be used
     }
   }
 
@@ -64,14 +68,12 @@ export function getNodeTexture(
   state: string,
   category?: string,
 ): PIXI.Texture | null {
-  // Task-specific icons
   if (category && state !== 'locked' && state !== 'completed' && state !== 'skipped') {
     const taskKey = `nodes/task-${category}.png`;
     const tex = loadedTextures.get(taskKey);
     if (tex) return tex;
   }
 
-  // State-based icons
   const stateMap: Record<string, string> = {
     locked: `nodes/${nodeType}-locked.png`,
     unlocked: `nodes/${nodeType}-unlocked.png`,

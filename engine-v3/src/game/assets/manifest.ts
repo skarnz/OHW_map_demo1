@@ -14,10 +14,10 @@ export interface AssetManifest {
 // Manifest of all game assets
 // Paths are relative to src/assets/
 export const ASSET_MANIFEST: AssetManifest = {
-  version: '1.0.0',
-  generated: '2026-02-12T00:00:00.000Z',
+  version: '1.1.0',
+  generated: '2026-02-13T00:00:00.000Z',
   assets: {
-    // Avatar sprites (48x64 Pillow-generated; procedural Graphics fallback used at runtime)
+    // Avatar sprites (48x64 Gemini-generated via OpenRouter; sprite + procedural fallback)
     'avatar/idle/frame1.png': { path: 'avatar/idle/frame1.png', width: 48, height: 64, required: true },
     'avatar/idle/frame2.png': { path: 'avatar/idle/frame2.png', width: 48, height: 64, required: true },
     'avatar/idle/frame3.png': { path: 'avatar/idle/frame3.png', width: 48, height: 64, required: true },
@@ -35,7 +35,7 @@ export const ASSET_MANIFEST: AssetManifest = {
     'avatar/celebrate/frame5.png': { path: 'avatar/celebrate/frame5.png', width: 48, height: 64, required: true },
     'avatar/celebrate/frame6.png': { path: 'avatar/celebrate/frame6.png', width: 48, height: 64, required: true },
 
-    // Node icons (Pillow-generated; procedural Graphics used at runtime)
+    // Node icons (Gemini-generated 48x48; sprite rendering with procedural fallback)
     'nodes/week-locked.png': { path: 'nodes/week-locked.png', width: 48, height: 48, required: false },
     'nodes/week-unlocked.png': { path: 'nodes/week-unlocked.png', width: 48, height: 48, required: false },
     'nodes/week-completed.png': { path: 'nodes/week-completed.png', width: 48, height: 48, required: false },

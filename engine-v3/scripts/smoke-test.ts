@@ -97,7 +97,7 @@ assert(SPACING.screenPadding === 20, 'screen padding');
 console.log('4. Asset Manifest');
 const assetCount = Object.keys(ASSET_MANIFEST.assets).length;
 assert(assetCount > 30, `manifest has ${assetCount} assets (expected >30)`);
-assert(ASSET_MANIFEST.version === '1.0.0', 'manifest version');
+assert(ASSET_MANIFEST.version === '1.1.0', 'manifest version');
 
 const required = getRequiredAssets();
 assert(required.length > 10, `${required.length} required assets`);
