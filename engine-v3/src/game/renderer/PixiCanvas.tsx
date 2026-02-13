@@ -1,6 +1,6 @@
 import './pixiNativeSetup';
 import React, { useCallback, useRef, useEffect, useState, MutableRefObject } from 'react';
-import { View, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
+import { View, StyleSheet, LayoutChangeEvent, Platform, PixelRatio } from 'react-native';
 import { GLView, ExpoWebGLRenderingContext } from 'expo-gl';
 import {
   Application,
@@ -61,6 +61,7 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   const dragRef = useRef({ active: false, lx: 0, ly: 0 });
   const boundsRef = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
   const avatarNodeRef = useRef<string>('');
+  const scaleRef = useRef(1);
 
   const propsRef = useRef(sceneProps);
   const callbacksRef = useRef(callbacks);
@@ -77,7 +78,13 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
   const onContextCreate = useCallback(async (gl: ExpoWebGLRenderingContext) => {
     if (dimensions.width === 0) return;
 
-    const mockCanvas = createMockCanvas(gl, dimensions.width, dimensions.height);
+    // expo-gl creates a framebuffer at native pixel resolution.
+    // We must tell Pixi the actual pixel size so rendering fills the full view.
+    const scale = Platform.OS === 'web' ? 1 : PixelRatio.get();
+    scaleRef.current = scale;
+    const glWidth = gl.drawingBufferWidth || dimensions.width * scale;
+    const glHeight = gl.drawingBufferHeight || dimensions.height * scale;
+    const mockCanvas = createMockCanvas(gl, glWidth, glHeight);
 
     // On native, override Pixi's DOMAdapter so internal createCanvas()
     // calls return mock objects instead of touching the DOM.
@@ -90,8 +97,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
           // Use the document.createElement shim which provides getContext('2d')
           const el = (globalThis as Record<string, unknown>).document as Record<string, (...args: unknown[]) => unknown>;
           const c = el.createElement('canvas') as Record<string, unknown>;
-          c.width = w ?? dimensions.width;
-          c.height = h ?? dimensions.height;
+          c.width = w ?? glWidth;
+          c.height = h ?? glHeight;
           // Override WebGL context to return the expo-gl context
           const origGetContext = c.getContext as (type: string) => unknown;
           c.getContext = (type: string) => {
@@ -126,8 +133,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     try {
       await app.init({
         canvas: mockCanvas as unknown as HTMLCanvasElement,
-        width: dimensions.width,
-        height: dimensions.height,
+        width: glWidth,
+        height: glHeight,
         backgroundColor: getSeasonalPalette(propsRef.current.biome, propsRef.current.season).ground,
         antialias: true,
         resolution: 1,
@@ -141,8 +148,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       try {
         await app.init({
           canvas: mockCanvas as unknown as HTMLCanvasElement,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: glWidth,
+          height: glHeight,
           backgroundColor: getSeasonalPalette(propsRef.current.biome, propsRef.current.season).ground,
           preference: 'webgl',
           autoDensity: false,
@@ -160,6 +167,8 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
     const world = new Container();
     world.label = 'world';
     world.sortableChildren = true;
+    // Scale world so logical point coordinates map to native pixel canvas
+    world.scale.set(scale);
     app.stage.addChild(world);
     worldRef.current = world;
 
@@ -202,8 +211,10 @@ export default function PixiCanvas({ sceneProps, callbacks }: PixiCanvasProps) {
       const cam = cameraRef.current;
       cam.x += (cam.tx - cam.x) * 0.12;
       cam.y += (cam.ty - cam.y) * 0.12;
-      world.x = -cam.x;
-      world.y = -cam.y;
+      // Camera offset is in logical points; multiply by scale for pixel-space
+      const s = scaleRef.current;
+      world.x = -cam.x * s;
+      world.y = -cam.y * s;
 
       // Update avatar
       if (avatarRef.current) {
