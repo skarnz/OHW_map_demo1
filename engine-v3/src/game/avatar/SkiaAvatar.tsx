@@ -8,7 +8,7 @@ import {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { PathNode } from '../contracts';
+import { NodeState, PathNode } from '../contracts';
 
 export type AvatarState = 'idle' | 'walking' | 'celebrating';
 
@@ -32,7 +32,7 @@ export interface SkiaAvatarRef {
 
 interface SkiaAvatarProps {
   pathNodes: PathNode[];
-  nodeStates: Record<string, string>;
+  nodeStates: Record<string, NodeState>;
   avatarPosition: string;
   screenWidth: number;
   cameraX: SharedValue<number>;
@@ -50,7 +50,7 @@ const SkiaAvatar = React.forwardRef<SkiaAvatarRef, SkiaAvatarProps>(
   function SkiaAvatar(
     {
       pathNodes,
-      nodeStates,
+      nodeStates: _nodeStates,
       avatarPosition,
       screenWidth,
       cameraX,
