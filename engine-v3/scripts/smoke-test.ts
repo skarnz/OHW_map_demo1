@@ -251,6 +251,64 @@ for (const [key] of Object.entries(ASSET_MANIFEST.assets)) {
 }
 assert(manifestMissingOnDisk === 0, `${manifestMissingOnDisk} manifest entries missing on disk`);
 
+// Verify audio assets exist on disk with non-zero file size
+import { statSync } from 'fs';
+const audioFiles = ['tap.mp3', 'walk.mp3', 'celebrate.mp3', 'transition.mp3', 'complete.mp3'];
+for (const audioFile of audioFiles) {
+  const audioPath = resolve(assetsDir, 'audio', audioFile);
+  assert(existsSync(audioPath), `audio/${audioFile} exists on disk`);
+  if (existsSync(audioPath)) {
+    const stat = statSync(audioPath);
+    assert(stat.size > 100, `audio/${audioFile} is not empty (${stat.size} bytes)`);
+  }
+}
+
+// Verify node icon assets exist on disk
+const nodeIcons = [
+  'week-locked.png', 'week-unlocked.png', 'week-completed.png',
+  'day-locked.png', 'day-unlocked.png', 'day-completed.png',
+  'task-medication.png', 'task-nutrition.png', 'task-movement.png',
+  'task-wellness.png', 'task-checkin.png',
+];
+for (const icon of nodeIcons) {
+  const iconPath = resolve(assetsDir, 'nodes', icon);
+  assert(existsSync(iconPath), `nodes/${icon} exists on disk`);
+  if (existsSync(iconPath)) {
+    const stat = statSync(iconPath);
+    assert(stat.size > 500, `nodes/${icon} is a real image (${stat.size} bytes)`);
+  }
+}
+
+// Verify avatar sprite frames exist on disk
+const avatarAnims = { idle: 4, walk: 6, celebrate: 6 };
+for (const [anim, frameCount] of Object.entries(avatarAnims)) {
+  for (let f = 1; f <= frameCount; f++) {
+    const framePath = resolve(assetsDir, 'avatar', anim, `frame${f}.png`);
+    assert(existsSync(framePath), `avatar/${anim}/frame${f}.png exists`);
+    if (existsSync(framePath)) {
+      const stat = statSync(framePath);
+      assert(stat.size > 500, `avatar/${anim}/frame${f}.png is a real image (${stat.size} bytes)`);
+    }
+  }
+}
+
+// Verify skiaLoader exports
+import {
+  getNodeIconKey,
+  getAvatarFrameKey,
+} from '../src/game/assets/skiaLoader';
+
+assert(getNodeIconKey('week', 'locked') === 'nodes/week-locked.png', 'skiaLoader week-locked key');
+assert(getNodeIconKey('week', 'completed') === 'nodes/week-completed.png', 'skiaLoader week-completed key');
+assert(getNodeIconKey('day', 'unlocked') === 'nodes/day-unlocked.png', 'skiaLoader day-unlocked key');
+assert(getNodeIconKey('day', 'in_progress') === 'nodes/day-unlocked.png', 'skiaLoader day in_progress maps to unlocked');
+assert(getNodeIconKey('day', 'skipped') === 'nodes/day-locked.png', 'skiaLoader day skipped maps to locked');
+assert(getNodeIconKey('week', 'unlocked', 'medication') === 'nodes/task-medication.png', 'skiaLoader category overrides state');
+assert(getNodeIconKey('week', 'locked', 'medication') === 'nodes/week-locked.png', 'skiaLoader locked ignores category');
+assert(getAvatarFrameKey('idle', 1) === 'avatar/idle/frame1.png', 'skiaLoader avatar idle frame key');
+assert(getAvatarFrameKey('walk', 3) === 'avatar/walk/frame3.png', 'skiaLoader avatar walk frame key');
+assert(getAvatarFrameKey('celebrate', 6) === 'avatar/celebrate/frame6.png', 'skiaLoader avatar celebrate frame key');
+
 // --- 5. Cross-module Consistency ---
 console.log('5. Cross-module Consistency');
 

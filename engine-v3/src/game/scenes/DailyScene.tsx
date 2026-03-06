@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import SkiaCanvas from '../renderer/SkiaCanvas';
 import { GameSceneCallbacks, NodeState, Biome, Season } from '../contracts';
 import { PathConfig } from '../../data/journey-paths';
+import { SoundManager } from '../audio/SoundManager';
 import { COLORS } from '../../theme/tokens';
 
 interface DailySceneProps {
@@ -60,6 +61,7 @@ export default function DailyScene({
 
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId) => {
+      SoundManager.shared().play('tap');
       const state = nodeStates[nodeId];
       if (state && state !== 'locked') {
         onTaskTapped(nodeId);

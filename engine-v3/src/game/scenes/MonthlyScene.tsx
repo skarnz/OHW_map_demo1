@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import SkiaCanvas from '../renderer/SkiaCanvas';
 import { GameSceneCallbacks, NodeState, Biome, Season } from '../contracts';
 import { PathConfig } from '../../data/journey-paths';
+import { SoundManager } from '../audio/SoundManager';
 import { COLORS } from '../../theme/tokens';
 
 interface MonthlySceneProps {
@@ -44,6 +45,7 @@ export default function MonthlyScene({
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId, nodeType) => {
       console.log(`[Monthly] node tapped: ${nodeId} (${nodeType}), state=${nodeStates[nodeId]}`);
+      SoundManager.shared().play('tap');
       if (nodeType === 'week' && nodeStates[nodeId] !== 'locked') {
         onWeekSelected(nodeId);
       }

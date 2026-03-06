@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import SkiaCanvas from '../renderer/SkiaCanvas';
 import { GameSceneCallbacks, NodeState, Biome, Season, PathNode } from '../contracts';
+import { SoundManager } from '../audio/SoundManager';
 import { COLORS } from '../../theme/tokens';
 
 interface WeeklySceneProps {
@@ -55,6 +56,7 @@ export default function WeeklyScene({
 
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId, _nodeType) => {
+      SoundManager.shared().play('tap');
       if (nodeStates[nodeId] !== 'locked') {
         onDaySelected(nodeId);
       }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import QuarterlyView from './quarterly/QuarterlyView';
 import MonthlyScene from '../game/scenes/MonthlyScene';
@@ -8,6 +8,7 @@ import CloudTransition from './common/CloudTransition';
 import { NodeState, TaskCategory, QUARTER_BIOMES } from '../game/contracts';
 import { useJourneyData } from '../data/useJourneyData';
 import { useDeepLink } from '../navigation/useDeepLink';
+import { SoundManager } from '../game/audio/SoundManager';
 import { COLORS } from '../theme/tokens';
 
 type NavigationLayer = 'quarterly' | 'monthly' | 'weekly' | 'daily';
@@ -32,6 +33,11 @@ export default function JourneyMapNavigator() {
     updateNodeState,
   } = useJourneyData();
 
+  useEffect(() => {
+    SoundManager.shared().init();
+    return () => SoundManager.shared().destroy();
+  }, []);
+
   const [nav, setNav] = useState<NavigationState>({
     layer: 'quarterly',
     quarter: 1,
@@ -47,6 +53,7 @@ export default function JourneyMapNavigator() {
 
   const navigate = useCallback((update: Partial<NavigationState>) => {
     console.log(`[Nav] navigate:`, JSON.stringify(update));
+    SoundManager.shared().play('transition');
     pendingNavRef.current = update;
     setTransitioning(true);
   }, []);
@@ -95,6 +102,10 @@ export default function JourneyMapNavigator() {
     if (!category) {
       console.warn(`[Nav] Unknown task category in nodeId: ${taskId}`);
       return;
+    }
+
+    if (state === 'completed') {
+      SoundManager.shared().play('complete');
     }
 
     navigateToTask(taskId, category, state);
