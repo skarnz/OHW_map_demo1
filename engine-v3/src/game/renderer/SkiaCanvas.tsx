@@ -20,6 +20,7 @@ import Animated, {
 import { GameSceneCallbacks, GameSceneProps, NodeState, PathNode, TaskCategory } from '../contracts';
 import { COLORS, getSeasonalPalette } from '../../theme/tokens';
 import SkiaPropsRenderer from '../props/SkiaPropsRenderer';
+import SkiaAvatar, { SkiaAvatarRef } from '../avatar/SkiaAvatar';
 
 const NODE_RADIUS = 28;
 const NODE_INNER_RADIUS = 25.5;
@@ -76,6 +77,7 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
   const panStartX = useSharedValue(0);
   const panStartY = useSharedValue(0);
   const cameraInitialized = useRef(false);
+  const avatarRef = useRef<SkiaAvatarRef>(null);
 
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
@@ -184,6 +186,14 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
     }
   }, []);
 
+  const handleAvatarArrived = useCallback((nodeId: string) => {
+    callbacksRef.current.onAvatarArrived(nodeId);
+  }, []);
+
+  const handleCelebrationComplete = useCallback(() => {
+    callbacksRef.current.onCelebrationComplete();
+  }, []);
+
   const handleTapAtPosition = useCallback((screenX: number, screenY: number) => {
     const nodes = resolvedNodesRef.current;
     const props = scenePropsRef.current;
@@ -200,7 +210,12 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
 
       const state = props.nodeStates[node.id] || 'locked';
       if (state !== 'locked') {
-        cbs.onNodeTapped(node.id, node.type);
+        const showAvatar = props.sceneType === 'weekly' || props.sceneType === 'daily';
+        if (showAvatar && avatarRef.current) {
+          avatarRef.current.walkTo(node.id);
+        } else {
+          cbs.onNodeTapped(node.id, node.type);
+        }
       }
       return;
     }
@@ -402,6 +417,20 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
                       </React.Fragment>
                     );
                   })()
+                )}
+
+                {(sceneProps.sceneType === 'weekly' || sceneProps.sceneType === 'daily') && (
+                  <SkiaAvatar
+                    ref={avatarRef}
+                    pathNodes={sceneProps.pathNodes}
+                    nodeStates={sceneProps.nodeStates}
+                    avatarPosition={sceneProps.avatarPosition}
+                    screenWidth={dimensions.width}
+                    cameraX={cameraX}
+                    cameraY={cameraY}
+                    onAvatarArrived={handleAvatarArrived}
+                    onCelebrationComplete={handleCelebrationComplete}
+                  />
                 )}
               </Group>
             </Canvas>
