@@ -48,16 +48,9 @@ export const ASSET_MANIFEST: AssetManifest = {
     'nodes/task-wellness.png': { path: 'nodes/task-wellness.png', width: 48, height: 48, required: false },
     'nodes/task-checkin.png': { path: 'nodes/task-checkin.png', width: 48, height: 48, required: false },
 
-    // Tiles per biome
-    'tiles/wilderness/grass.png': { path: 'tiles/wilderness/grass.png', width: 48, height: 48, required: false },
-    'tiles/wilderness/dirt-path.png': { path: 'tiles/wilderness/dirt-path.png', width: 48, height: 48, required: false },
-    'tiles/wilderness/water.png': { path: 'tiles/wilderness/water.png', width: 48, height: 48, required: false },
-    'tiles/town/grass.png': { path: 'tiles/town/grass.png', width: 48, height: 48, required: false },
-    'tiles/town/cobble.png': { path: 'tiles/town/cobble.png', width: 48, height: 48, required: false },
-    'tiles/suburbs/lawn.png': { path: 'tiles/suburbs/lawn.png', width: 48, height: 48, required: false },
-    'tiles/suburbs/sidewalk.png': { path: 'tiles/suburbs/sidewalk.png', width: 48, height: 48, required: false },
-    'tiles/city/asphalt.png': { path: 'tiles/city/asphalt.png', width: 48, height: 48, required: false },
-    'tiles/city/concrete.png': { path: 'tiles/city/concrete.png', width: 48, height: 48, required: false },
+    // Ground tiles: REMOVED (issue #2). Scenes use procedural biome fills via
+    // getSeasonalPalette(); tile sprites added no visual value and inflated bundle.
+    // Re-generate via scripts/generate-assets.ts if tile rendering is added later.
 
     // UI
     'ui/placeholder.png': { path: 'ui/placeholder.png', width: 48, height: 48, required: false },

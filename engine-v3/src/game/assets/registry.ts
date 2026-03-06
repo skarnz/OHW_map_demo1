@@ -22,22 +22,7 @@ const ASSET_SOURCES: Record<string, AssetSource> = {
   'nodes/task-wellness.png': require('../../assets/nodes/task-wellness.png'),
   'nodes/task-checkin.png': require('../../assets/nodes/task-checkin.png'),
 
-  // Tiles - wilderness
-  'tiles/wilderness/grass.png': require('../../assets/tiles/wilderness/grass.png'),
-  'tiles/wilderness/dirt-path.png': require('../../assets/tiles/wilderness/dirt-path.png'),
-  'tiles/wilderness/water.png': require('../../assets/tiles/wilderness/water.png'),
-
-  // Tiles - town
-  'tiles/town/grass.png': require('../../assets/tiles/town/grass.png'),
-  'tiles/town/cobble.png': require('../../assets/tiles/town/cobble.png'),
-
-  // Tiles - suburbs
-  'tiles/suburbs/lawn.png': require('../../assets/tiles/suburbs/lawn.png'),
-  'tiles/suburbs/sidewalk.png': require('../../assets/tiles/suburbs/sidewalk.png'),
-
-  // Tiles - city
-  'tiles/city/asphalt.png': require('../../assets/tiles/city/asphalt.png'),
-  'tiles/city/concrete.png': require('../../assets/tiles/city/concrete.png'),
+  // Ground tiles: REMOVED (issue #2). See manifest.ts for rationale.
 
   // Avatar - idle
   'avatar/idle/frame1.png': require('../../assets/avatar/idle/frame1.png'),
