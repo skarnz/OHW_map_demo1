@@ -16,8 +16,10 @@ import Animated, {
   useDerivedValue,
   withSpring,
   runOnJS,
+  useFrameCallback,
 } from 'react-native-reanimated';
 import { GameSceneCallbacks, GameSceneProps, NodeState, PathNode, TaskCategory } from '../contracts';
+import { perfMonitor } from '../../perf/PerfMonitor';
 import { COLORS, getSeasonalPalette } from '../../theme/tokens';
 import SkiaPropsRenderer from '../props/SkiaPropsRenderer';
 import SkiaAvatar, { SkiaAvatarRef } from '../avatar/SkiaAvatar';
@@ -63,6 +65,10 @@ const CATEGORY_ICONS: Record<TaskCategory, string> = {
   wellness: '🧘',
   checkin: '📝',
 };
+
+function recordPerfFrame(timestamp: number) {
+  perfMonitor.recordFrame(timestamp);
+}
 
 interface SkiaCanvasProps {
   sceneProps: GameSceneProps;
@@ -284,6 +290,14 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
     { translateX: -cameraX.value },
     { translateY: -cameraY.value },
   ]);
+
+  // Frame timing for perf profiling
+  useFrameCallback((info) => {
+    'worklet';
+    if (perfMonitor.enabled) {
+      runOnJS(recordPerfFrame)(info.timestamp);
+    }
+  });
 
   return (
     <View style={styles.container} onLayout={onLayout}>
