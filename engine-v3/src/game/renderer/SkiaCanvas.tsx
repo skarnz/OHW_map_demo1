@@ -12,6 +12,7 @@ import {
 } from '@shopify/react-native-skia';
 import { GameSceneCallbacks, GameSceneProps, NodeState, PathNode, TaskCategory } from '../contracts';
 import { COLORS, getSeasonalPalette } from '../../theme/tokens';
+import SkiaPropsRenderer from '../props/SkiaPropsRenderer';
 
 const NODE_RADIUS = 28;
 const NODE_INNER_RADIUS = 25.5;
@@ -155,6 +156,13 @@ export default function SkiaCanvas({ sceneProps, callbacks }: SkiaCanvasProps) {
               width={backgroundRect.width}
               height={backgroundRect.height}
               color={toSkiaColor(palette.ground)}
+            />
+
+            <SkiaPropsRenderer
+              pathNodes={sceneProps.pathNodes}
+              biome={sceneProps.biome}
+              season={sceneProps.season}
+              screenWidth={dimensions.width}
             />
 
             {resolvedNodes.slice(0, -1).map((node, index) => {
