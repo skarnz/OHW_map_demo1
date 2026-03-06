@@ -4,7 +4,6 @@
  * Falls back to null when images aren't loaded (caller uses procedural rendering).
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useImage } from '@shopify/react-native-skia';
 import type { SkImage } from '@shopify/react-native-skia';
 import { getAssetSource } from './registry';
 import { Platform } from 'react-native';

@@ -52,14 +52,12 @@ export default function JourneyMapNavigator() {
   const currentWeek = progress?.currentWeek ?? 1;
 
   const navigate = useCallback((update: Partial<NavigationState>) => {
-    console.log(`[Nav] navigate:`, JSON.stringify(update));
     SoundManager.shared().play('transition');
     pendingNavRef.current = update;
     setTransitioning(true);
   }, []);
 
   const onTransitionMidpoint = useCallback(() => {
-    console.log(`[Nav] midpoint, pending:`, JSON.stringify(pendingNavRef.current));
     if (pendingNavRef.current) {
       setNav(prev => ({ ...prev, ...pendingNavRef.current! }));
       pendingNavRef.current = null;
@@ -67,7 +65,6 @@ export default function JourneyMapNavigator() {
   }, []);
 
   const onTransitionComplete = useCallback(() => {
-    console.log(`[Nav] transition complete`);
     setTransitioning(false);
   }, []);
 

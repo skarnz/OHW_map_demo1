@@ -44,7 +44,6 @@ export default function MonthlyScene({
 
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId, nodeType) => {
-      console.log(`[Monthly] node tapped: ${nodeId} (${nodeType}), state=${nodeStates[nodeId]}`);
       SoundManager.shared().play('tap');
       if (nodeType === 'week' && nodeStates[nodeId] !== 'locked') {
         onWeekSelected(nodeId);
