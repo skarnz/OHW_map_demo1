@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Platform, Linking, Alert } from 'react-native';
 import { TaskCategory, NodeState } from '../game/contracts';
 import { getRouteForTask, RouteTarget } from './routes';
@@ -12,13 +12,16 @@ export interface DeepLinkOptions {
 // On native: attempts deep link via Linking API.
 // On web: logs the route (host app wires actual navigation).
 export function useDeepLink(options: DeepLinkOptions = {}) {
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const navigateToTask = useCallback(
     async (nodeId: string, category: TaskCategory, nodeState: NodeState) => {
       const route = getRouteForTask(category, nodeState, nodeId);
       if (!route) return;
 
-      if (options.onNavigate) {
-        options.onNavigate(route);
+      if (optionsRef.current.onNavigate) {
+        optionsRef.current.onNavigate(route);
         return;
       }
 
@@ -43,7 +46,7 @@ export function useDeepLink(options: DeepLinkOptions = {}) {
         console.error('[DeepLink] Navigation failed:', err);
       }
     },
-    [options],
+    [],
   );
 
   return { navigateToTask };
