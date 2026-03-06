@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import PixiCanvas from '../renderer/PixiCanvas';
+import SkiaCanvas from '../renderer/SkiaCanvas';
 import { GameSceneCallbacks, NodeState, Biome, Season } from '../contracts';
 import { PathConfig } from '../../data/journey-paths';
 import { COLORS } from '../../theme/tokens';
@@ -80,7 +80,7 @@ export default function MonthlyScene({
         <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
       </View>
 
-      <PixiCanvas sceneProps={sceneProps} callbacks={callbacks} />
+      <SkiaCanvas sceneProps={sceneProps} callbacks={callbacks} />
     </View>
   );
 }

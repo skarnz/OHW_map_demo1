@@ -7,5 +7,16 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": [
+    "scripts/smoke-test-pixi.ts",
+    "src/game/assets/loader.ts",
+    "src/game/avatar/AvatarController.ts",
+    "src/game/effects/CelebrationEffect.ts",
+    "src/game/props/PropsRenderer.ts",
+    "src/game/renderer/GraphicsPool.ts",
+    "src/game/renderer/PixiCanvas.tsx",
+    "src/game/renderer/pixiAdapter.ts",
+    "src/game/renderer/pixiNativeSetup.ts"
+  ]
 }
