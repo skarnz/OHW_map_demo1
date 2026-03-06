@@ -61,7 +61,7 @@ export default function DailyScene({
   const callbacks: GameSceneCallbacks = useMemo(() => ({
     onNodeTapped: (nodeId) => {
       const state = nodeStates[nodeId];
-      if (state === 'unlocked' || state === 'in_progress') {
+      if (state && state !== 'locked') {
         onTaskTapped(nodeId);
       }
     },

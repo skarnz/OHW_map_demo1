@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import QuarterlyView from './quarterly/QuarterlyView';
 import MonthlyScene from '../game/scenes/MonthlyScene';
 import WeeklyScene from '../game/scenes/WeeklyScene';
 import DailyScene from '../game/scenes/DailyScene';
 import CloudTransition from './common/CloudTransition';
-import { NodeState, QUARTER_BIOMES } from '../game/contracts';
+import { NodeState, TaskCategory, QUARTER_BIOMES } from '../game/contracts';
 import { useJourneyData } from '../data/useJourneyData';
+import { useDeepLink } from '../navigation/useDeepLink';
 import { COLORS } from '../theme/tokens';
 
 type NavigationLayer = 'quarterly' | 'monthly' | 'weekly' | 'daily';
@@ -78,22 +79,26 @@ export default function JourneyMapNavigator() {
     navigate({ layer: 'daily', dayId });
   }, [navigate]);
 
-  // Task tap from daily → would open native screen
+  const { navigateToTask } = useDeepLink();
+
+  // Task tap from daily -> open native screen via deep link
   const onTaskTapped = useCallback((taskId: string) => {
-    Alert.alert(
-      'Open Native Screen',
-      `Task "${taskId}" tapped.\n\nIn production, this opens the corresponding native screen (food logger, medication tracker, etc.)`,
-      [
-        {
-          text: 'Complete Task',
-          onPress: () => {
-            updateNodeState(taskId, 'completed');
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  }, [updateNodeState]);
+    const state = nodeStates[taskId] as NodeState | undefined;
+    if (!state || state === 'locked') return;
+
+    // Extract the task category from the node ID (format: "w2-d4-medication")
+    const parts = taskId.split('-');
+    const categorySlug = parts[parts.length - 1];
+    const validCategories: TaskCategory[] = ['medication', 'nutrition', 'movement', 'wellness', 'checkin'];
+    const category = validCategories.find(c => c === categorySlug);
+
+    if (!category) {
+      console.warn(`[Nav] Unknown task category in nodeId: ${taskId}`);
+      return;
+    }
+
+    navigateToTask(taskId, category, state);
+  }, [nodeStates, navigateToTask]);
 
   // Back navigation
   const goBack = useCallback(() => {
