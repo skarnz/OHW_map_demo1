@@ -59,7 +59,7 @@ export function getAllAssetKeys(): string[] {
 }
 
 /**
- * Resolve an Expo asset source to a URI that PIXI.Assets can load.
+ * Resolve an Expo asset source to a loadable URI.
  * On web, require() returns a string URI directly.
  * On native, we need Asset.fromModule() to get the local URI.
  */
